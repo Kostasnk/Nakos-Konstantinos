@@ -7,15 +7,15 @@ PAR_PEL=10  # Παραγγελίες ανά πελάτη
 
 # Δημιουργία καταλόγου προϊόντων
 declare -A catalog  # Ο κατάλογος περιέχει την περιγραφή, τιμή, και απόθεμα κάθε προϊόντος
-declare -A sta_par  # Στατιστικά παραγγελιών για κάθε προϊόν (αιτήματα, πωλήσεις)
+declare -A sta_par  # Στατιστικά παραγγελιών για κάθε προϊόν 
 declare -A apo_par  # Λίστα με τις αποτυχημένες παραγγελίες για κάθε προϊόν
 declare -A tel_poso  # Σύνολο εσόδων για κάθε πελάτη
 
 # Αρχικοποίηση καταλόγου προϊόντων με τυχαίες τιμές και απόθεμα
 for i in {0..19}; do
   timi=$((RANDOM % 50 + 5))  # Τυχαία τιμή μεταξύ 5 και 55
-  catalog[$i]="Proion_$i $timi 2"  # Μορφή: περιγραφή, τιμή, απόθεμα
-  sta_par[$i]="0 0"  # Μορφή: αιτήματα, πωλήσεις
+  catalog[$i]="Proion_$i $timi 2" #  περιγραφή, τιμή, απόθεμα
+  sta_par[$i]="0 0" # αιτήματα, πωλήσεις
   apo_par[$i]=""  # Αρχικοποίηση αποτυχημένων παραγγελιών
   tel_poso[$i]=0  # Αρχικοποίηση συνολικών εσόδων ανά προϊόν
 done
@@ -40,7 +40,7 @@ epejergasia_paraggelias() {
     SYNOLTIMI=$timi  # Καταχώρηση τιμής
     KATASTASH="PELATHS $PEL_PID OLOKLHROTHIKE I PARAGGELIA, SYNOLIKO POSO: $SYNOLTIMI$"  # Μήνυμα επιτυχίας
   else
-    # Ενημέρωση αποτυχημένων παραγγελιών
+    #  αποτυχημένες παραγγελιες
     sta_par[$proion]="${sta_par[$proion]% *} $((${sta_par[$proion]##* } + 0))"
     apo_par[$proion]="${apo_par[$proion]} PELATHS_$PEL_PID APETIXE GIA TO  Proion_$proion. "
     KATASTASH="PELATHS $PEL_PID H PARAGGELIA APETYXE"  # Μήνυμα αποτυχίας
@@ -82,7 +82,7 @@ done
 # Αναμονή για τερματισμό όλων των πελατών
 wait
 
-# Παραγωγή αναφοράς
+# αναφορα για την παραγωγη
 
 echo "PERIGRAFI PARAGWGIS"
 

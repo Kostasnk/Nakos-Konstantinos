@@ -1,1 +1,122 @@
+#!/bin/bash
+
+# δηλωση του αριθμού των προϊόντων, των πελατών και των παραγγελιών ανά πελάτη
+AR_PRO=20  # Αριθμός προϊόντων
+AR_PEL=10  # Αριθμός πελατών
+PAR_PEL=10  # Παραγγελίες ανά πελάτη
+
+# Δημιουργία καταλόγου προϊόντων
+declare -A catalog  # Ο κατάλογος περιέχει την περιγραφή, τιμή, και απόθεμα κάθε προϊόντος
+declare -A sta_par  # Στατιστικά παραγγελιών για κάθε προϊόν (αιτήματα, πωλήσεις)
+declare -A apo_par  # Λίστα με τις αποτυχημένες παραγγελίες για κάθε προϊόν
+declare -A tel_poso  # Σύνολο εσόδων για κάθε πελάτη
+
+# Αρχικοποίηση καταλόγου προϊόντων με τυχαίες τιμές και απόθεμα
+for i in {0..19}; do
+  timi=$((RANDOM % 50 + 5))  # Τυχαία τιμή μεταξύ 5 και 55
+  catalog[$i]="Proion_$i $timi 2"  # Μορφή: περιγραφή, τιμή, απόθεμα
+  sta_par[$i]="0 0"  # Μορφή: αιτήματα, πωλήσεις
+  apo_par[$i]=""  # Αρχικοποίηση αποτυχημένων παραγγελιών
+  tel_poso[$i]=0  # Αρχικοποίηση συνολικών εσόδων ανά προϊόν
+done
+
+# Συνάρτηση για την επεξεργασία παραγγελίας
+epejergasia_paraggelias() {
+  local proion=$1  # ID του προϊόντος
+  local PEL_PID=$2  # Αναγνωριστικό του πελάτη
+  local KATASTASH="H PARAGGELIA GIA TO  $proion APETYXE"  # Μήνυμα αποτυχίας
+  local SYNOLTIMI=0  # Σύνολο τιμής της παραγγελίας
+
+  # Ανάκτηση πληροφοριών προϊόντος από τον κατάλογο
+  IFS=' ' read -r perigrafi timi apothema <<< "${catalog[$proion]}"
+
+  # Έλεγχος διαθεσιμότητας και επεξεργασία παραγγελίας
+  if [[ $apothema -gt 0 ]]; then
+    # Μείωση αποθέματος κατά 1
+    catalog[$proion]="${perigrafi} $timi $(($apothema - 1))"
+
+    # Ενημέρωση στατιστικών παραγγελιών
+    sta_par[$proion]="${sta_par[$proion]% *} $((${sta_par[$proion]##* } + 1))"
+    SYNOLTIMI=$timi  # Καταχώρηση τιμής
+    KATASTASH="PELATHS $PEL_PID OLOKLHROTHIKE I PARAGGELIA, SYNOLIKO POSO: $SYNOLTIMI$"  # Μήνυμα επιτυχίας
+  else
+    # Ενημέρωση αποτυχημένων παραγγελιών
+    sta_par[$proion]="${sta_par[$proion]% *} $((${sta_par[$proion]##* } + 0))"
+    apo_par[$proion]="${apo_par[$proion]} PELATHS_$PEL_PID APETIXE GIA TO  Proion_$proion. "
+    KATASTASH="PELATHS $PEL_PID H PARAGGELIA APETYXE"  # Μήνυμα αποτυχίας
+  fi
+
+  # Επιστροφή αποτελέσματος στον πελάτη
+  echo "$KATASTASH" > "pipe_from_server_to_$PEL_PID"
+  tel_poso[$PEL_PID]=$((${tel_poso[$PEL_PID]} + SYNOLTIMI))  # Ενημέρωση συνολικών εσόδων πελάτη
+}
+
+# Δημιουργία pipes και εκκίνηση διεργασιών πελατών
+for PEL_PID in {1..5}; do  # Για 5 πελάτες
+  mkfifo "pipe_to_server_from_$PEL_PID"  # Δημιουργία pipe για παραγγελίες προς τον server
+  mkfifo "pipe_from_server_to_$PEL_PID"  # Δημιουργία pipe για απαντήσεις από τον server
+
+  # Εκκίνηση διεργασίας πελάτη
+  (
+    for i in {1..10}; do  # 10 παραγγελίες ανά πελάτη
+      proion=$(($RANDOM % AR_PRO))  # Τυχαία επιλογή προϊόντος
+      echo $proion > "pipe_to_server_from_$PEL_PID"  # Αποστολή ID προϊόντος στον server
+
+      # Αναμονή απάντησης από τον server
+      KATASTASH=$(cat "pipe_from_server_to_$PEL_PID")
+      echo "$KATASTASH"  # Εμφάνιση αποτελέσματος παραγγελίας
+      sleep 1  # Αναμονή 1 δευτερολέπτου μεταξύ παραγγελιών
+    done
+  ) &
+done
+
+# Επεξεργασία παραγγελιών από τον server
+for PEL_PID in {1..10}; do
+  for i in {1..10}; do
+    proion=$(cat "pipe_to_server_from_$PEL_PID")  # διαβασμα παραγγελίας από τον πελάτη
+    epejergasia_paraggelias $proion $PEL_PID  # καλεσμα συναρτησης επεξεργασιας
+
+  done
+done
+
+# Αναμονή για τερματισμό όλων των πελατών
+wait
+
+# Παραγωγή αναφοράς
+
+echo "PERIGRAFI PARAGWGIS"
+
+S_PARA=0 #ΣΥΝΟΛΙΚΕΣ ΠΑΡΑΓΓΕΛΙΕΣ
+EPIT_PARA=0 #ΕΠΙΤΥΧΙΜΕΝΕΣ ΠΑΡΑΓΓΕΛΙΕΣ
+APOTYXIMENES=0 #ΑΠΟΤΥΧΗΜΕΝΕΣ ΠΑΡΑΓΓΕΛΙΕΣ
+SYNOLIKO_KERDOS=0
+
+# Δημιουργία αναφοράς προϊόντων
+for i in {0..19}; do
+  IFS=' ' read -r perigrafi timi apothema <<< "${catalog[$i]}"
+  aitimata=$(echo ${sta_par[$i]} | cut -d' ' -f1)  # Αριθμός αιτημάτων
+  poulimena=$(echo ${sta_par[$i]} | cut -d' ' -f2)  # Αριθμός πωλήσεων
+
+  S_PARA=$((S_PARA + aitimata))  # Συνολικές παραγγελίες
+  EPIT_PARA=$((EPIT_PARA + poulimena))  # Επιτυχημένες παραγγελίες
+  APOTYXIMENES=$((APOTYXIMENES + (aitimata - poulimena)))  # Αποτυχημένες παραγγελίες
+  SYNOLIKO_KERDOS=$((SYNOLIKO_KERDOS + (poulimena * timi)))  # Συνολικά έσοδα
+
+  echo "PROION: $perigrafi"
+  echo "  AITHMATA: $aitimata"
+  echo "  POYLITHIKAN: $poulimena"
+  echo "  MH EPITYXIMENA AITIMATA: $(($aitimata - $poulimena))"
+  echo "  PELATES POY DEN OLOKLHRWSAN THN PARAGGELIA: ${apo_par[$i]}"
+done
+
+# Εμφάνιση συνολων
+echo "SYNOLIKES PARAGGELIES: $S_PARA"
+echo "EPITYXIMENES PARAGGELIES: $EPIT_PARA"
+echo "APOTYXIMENES PARAGGELIES: $APOTYXIMENES"
+echo "SYNOLIKO KERDOS: $SYNOLIKO_KERDOS"
+# Αναφορά συνολικών εσόδων ανά πελάτη
+echo "SYNOLIKES AGORES PELATHS"
+for PEL_PID in {1..5}; do
+  echo "PELATHS $PEL_PID SYNOLIKO KERDOS: ${tel_poso[$PEL_PID]}$"
+done
 
